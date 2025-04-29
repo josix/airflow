@@ -55,16 +55,19 @@ class AirbyteHook(BaseHook):
         self.conn = self.get_conn_params(self.airbyte_conn_id)
         self.airbyte_api = self.create_api_session()
 
-    def get_conn_params(self, conn_id: str) -> Any:
-        conn = self.get_connection(conn_id)
+def get_conn_params(self, conn_id: str) -> Any:
+    conn = self.get_connection(conn_id)
 
-        conn_params: dict = {}
-        conn_params["host"] = conn.host
-        conn_params["client_id"] = conn.login
-        conn_params["client_secret"] = conn.password
-        conn_params["token_url"] = conn.schema or "v1/applications/token"
+    conn_params: dict = {}
+    conn_params["host"] = conn.host
+    conn_params["client_id"] = conn.login
+    conn_params["client_secret"] = conn.password
+    conn_params["token_url"] = conn.schema or "v1/applications/token"
 
-        return conn_params
+    # Extract proxy settings if provided in the extra JSON
+    conn_params["proxies"] = conn.extra_dejson.get("proxies", None)
+
+    return conn_params
 
     def create_api_session(self) -> AirbyteAPI:
         """Create Airbyte API session."""
@@ -74,10 +77,26 @@ class AirbyteHook(BaseHook):
             token_url=self.conn["token_url"],
         )
 
-        return AirbyteAPI(
-            server_url=self.conn["host"],
-            security=Security(client_credentials=credentials),
-        )
+import requests  # Make sure to import requests if not already imported
+
+def create_api_session(self) -> AirbyteAPI:
+    """Create Airbyte API session."""
+    credentials = SchemeClientCredentials(
+        client_id=self.conn["client_id"],
+        client_secret=self.conn["client_secret"],
+        token_url=self.conn["token_url"],
+    )
+
+    # Create a session and set proxies if they are provided
+    client = requests.Session()
+    if self.conn.get("proxies"):
+        client.proxies.update(self.conn["proxies"])
+
+    return AirbyteAPI(
+        server_url=self.conn["host"],
+        security=Security(client_credentials=credentials),
+        client=client  # Pass the session with proxy settings
+    )
 
     @classmethod
     def get_ui_field_behaviour(cls) -> dict[str, Any]:
