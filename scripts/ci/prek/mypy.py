@@ -46,10 +46,17 @@ if not files_to_test:
 # TODO(potiuk): add suspended providers exclusion
 
 repo_root = AIRFLOW_ROOT_PATH.resolve()
+relative_files = [str(Path(file).absolute().relative_to(repo_root)) for file in files_to_test]
+
+# Use a response file to avoid "argument list too long" when many files are passed
+mypy_file_list = AIRFLOW_ROOT_PATH / "files" / "mypy_files.txt"
+mypy_file_list.parent.mkdir(parents=True, exist_ok=True)
+mypy_file_list.write_text("\n".join(relative_files))
+
 cmd = [
     "bash",
     "-c",
-    f"TERM=ansi mypy {' '.join([shlex.quote(str(Path(file).absolute().relative_to(repo_root))) for file in files_to_test])}",
+    "TERM=ansi mypy @/files/mypy_files.txt",
 ]
 
 res = run_command_via_breeze_shell(
